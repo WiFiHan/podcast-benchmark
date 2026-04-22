@@ -42,7 +42,7 @@ training_params:
   - precision_logits
   - acc_logits
   min_lag: -1000
-  n_folds: 5
+  n_folds: 10
   smaller_is_better: false
   weight_decay: 1.0e-05
   fold_ids:
