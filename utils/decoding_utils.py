@@ -494,6 +494,7 @@ def train_decoding_model(
         is_train = optimizer is not None
         if is_train:
             model.train()
+            #*note that this is not enough for gpt2brain, which is why we have a seprate `change_training_mode`
         else:
             model.eval()
 
@@ -520,6 +521,13 @@ def train_decoding_model(
             yb = yb.to(device)
 
             if is_train:
+                #example thing you could run to do sanity check the training mode and requires grad
+                # check_model_train_eval_and_requires_grads(model, True) 
+                
+                #if gpt2brain mode, get ready for train mode (nees to be done cuz llm freeze thing is complicated)
+                if model.__class__.__name__.startswith("GPT2Brain") : 
+                    model.change_training_mode(freeze_lm=model_spec.params['freeze_lm']) # adhoc method...
+                
                 # Forward pass
                 out = model(Xb, **inputs_dict)
                 # Loss calculation
@@ -1291,3 +1299,111 @@ class DIVERCachedFeatureAdapterModel(nn.Module):
         if adapted_out.shape[-1] == 1:
             adapted_out = adapted_out.squeeze(-1)
         return adapted_out
+
+
+def _build_gpt2_cached_feature_head(encoder_model: nn.Module) -> nn.Module:
+    """
+    Build FM-specific adapter that maps cached encoder features -> neural embeddings
+    expected by GPT2Brain prompt construction.
+    """
+    encoder_name = encoder_model.__class__.__name__
+
+    if encoder_name == "ReferenceBrainBERTDecoder":
+        # projector usually does not need kwargs; keep squeeze logic consistent with existing path
+        return SqueezeWrapper(
+            feature_head=MakeIgnoreKwargsDuringForward(encoder_model.projector),
+            output_dim=getattr(encoder_model, "output_dim", None),
+        )
+
+    if encoder_name == "ReferencePOPTDecoder":
+        return MakeIgnoreKwargsDuringForward(encoder_model.head)
+
+    if encoder_name == "DIVERDecoder":
+        return DIVERCachedFeatureAdapterModel(
+            encoder_model.diver_model.ft_core_model,
+            encoder_model.diver_model.ft_model_output_adapter,
+        )
+
+    raise NotImplementedError(
+        f"GPT2Brain feature-cache adapter not implemented for encoder: {encoder_name}"
+    )
+    
+class GPT2BrainCachedFeatureAdapterModel(nn.Module):
+    def __init__(self, gpt2_brain_model: nn.Module, cached_feature_head: nn.Module):
+        super().__init__()
+        self.gpt2_brain_model = gpt2_brain_model
+        self.cached_feature_head = cached_feature_head
+    
+    def change_training_mode(self, freeze_lm = True):
+        #! very adhoc but whatever...
+        # Freeze LM if specified
+        if freeze_lm:
+            for param in self.gpt2_brain_model.lm_model.parameters():
+                param.requires_grad = False
+            self.gpt2_brain_model.lm_model.eval()  # Set LM to eval mode when frozen
+        else:
+            self.gpt2_brain_model.lm_model.train()  # Set LM to train mode when not frozen
+        
+        self.gpt2_brain_model.encoder_model.eval() # Encoder is always frozen and in eval mode
+
+        # Cached feature head should always be trainable and in train mode
+        for param in self.cached_feature_head.parameters():
+            param.requires_grad = True
+        self.cached_feature_head.train()
+        if not self.gpt2_brain_model.no_brain_token_injection:
+            self.gpt2_brain_model.lm_model.transformer.wte.weight.requires_grad = True
+
+    def forward(
+        self,
+        x,
+        all_input_ids,
+        all_attention_mask,
+        target_attention_mask=None,
+        return_all_preds=False,
+        **kwargs,
+    ):
+        # 1) cached feature -> FM post-cache projection/head output
+        neural_embeddings = self.cached_feature_head(x, **kwargs)
+
+        # 2) build prompt embeddings + mask
+        prompt_embeddings, prompt_attention_mask = self.gpt2_brain_model._build_prompt_embeddings(
+            neural_embeddings, all_input_ids, all_attention_mask
+        )
+
+        # 3) run GPT2
+        output = self.gpt2_brain_model.lm_model(
+            inputs_embeds=prompt_embeddings, attention_mask=prompt_attention_mask
+        )
+
+        if return_all_preds:
+            return output.logits, prompt_attention_mask
+
+        # Prefer GPT2Brain's own target extraction logic when available
+        if hasattr(self.gpt2_brain_model, "_get_target_predictions") and target_attention_mask is not None:
+            return self.gpt2_brain_model._get_target_predictions(
+                output, prompt_attention_mask, target_attention_mask
+            )
+
+        # Fallback: next-token logits from last position
+        return output.logits[:, -1, :]
+
+
+def check_model_train_eval_and_requires_grads(model: nn.Module, print_requires_grad_params = False):
+    r""" 
+    #example usage below
+    check_model_train_eval_and_requires_grads(model.gpt2_brain_model)
+    check_model_train_eval_and_requires_grads(model.cached_feature_head)
+    check_model_train_eval_and_requires_grads(model.gpt2_brain_model.encoder_model)
+    check_model_train_eval_and_requires_grads(model.gpt2_brain_model.lm_model)
+    print(f"==="*5)
+    check_model_train_eval_and_requires_grads(model.cached_feature_head, True) #! feature_head.module.weight, feature_head.module.bias are the only ones that requires grad
+    check_model_train_eval_and_requires_grads(model.gpt2_brain_model.lm_model, True) #! Parameter 'transformer.wte.weight' requires grad
+    """
+    print(f"Model is in training mode: {model.training}")
+    num_params_requires_grad = sum(1 for p in model.parameters() if p.requires_grad)
+
+    print(f"Parameter tensors requiring grad: {num_params_requires_grad} out of {sum(1 for p in model.parameters())} total parameters")
+    if print_requires_grad_params:
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                print(f"Parameter '{name}' requires grad")
