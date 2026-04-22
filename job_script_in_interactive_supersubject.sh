@@ -22,11 +22,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${SCRIPT_DIR}"
 
-MAX_PARALLEL=1
+MAX_PARALLEL=3
 DRY_RUN=0
 CLI_MODELS=()
 
-# cd /pscratch/sd/a/ahhyun/EcoGFound/PODCAST/podcast-benchmark/commands
+# cd /pscratch/sd/a/ahhyun/EcoGFound/PODCAST/podcast-benchmark/
 # CUDA_VISIBLE_DEVICES=0 bash job_script_in_interactive_supersubject.sh --models diver
 # CUDA_VISIBLE_DEVICES=1 bash job_script_in_interactive_supersubject.sh --models popt
 # CUDA_VISIBLE_DEVICES=2 bash job_script_in_interactive_supersubject.sh --models brainbert
@@ -54,31 +54,27 @@ models=(
 if (( ${#CLI_MODELS[@]} > 0 )); then
     models=("${CLI_MODELS[@]}")
 fi
-    # "brainbert" 0s
-    # "popt" 2
-    # "diver" 1
 
 
 tasks=(
-    #"whisper_embedding"   # done (all 3 models)
-    #"gpt_surprise"        # done (all 3 models)
-    #"pos"
     "content_noncontent"
     "gpt_surprise_multiclass"
-    #"iu_boundary"
-    #"llm_embedding_pretraining"
-    #"sentence_onset"
-    #"volume_level"
-    #
-    # "llm_decoding"        # bug: tensor shape mismatch
-    # "word_embedding"      # bug: preserve_ensemble kwarg
+    "gpt_surprise" 
+    "iu_boundary"
+    "llm_decoding"               
+    "llm_embedding_pretraining"    #!don't exsit for baseline? or is it llm_token_finetune_2025-12-26-12-44-36
+    "pos"
+    "sentence_onset"
+    "whisper_embedding"        
+    "word_embedding"          # bug for DIVER? needs check
+    "volume_level"          
 )
 
-lags=(0)
+lags=(200)
 
 variants=(
-    "supersubject"
-    #"persubject_concat"
+    #"supersubject"
+    "persubject_concat"
 )
 
 # ---- Sig10 mode ----
@@ -87,7 +83,7 @@ variants=(
 # and electrode_file_path is overridden to processed_data/sig10/sub{N}_sig.csv.
 # When disabled (default), runs with the variant config as-is (SigFull).
 USE_SIG10=0
-subjects=(1 2 3 4 5 6 7 8 9)
+subjects=(1 3 4 5 6 7 8 9) #* left out sub2 since 1) it's noisy and 2) not included in supersubject csv file.
 
 # ---- Logging ----
 LOG_DIR="${PROJECT_ROOT}/logs/interactive_batch"
@@ -204,7 +200,7 @@ for task in "${tasks[@]}"; do
                         --model "$model" \
                         --task "$task" \
                         --variant "$actual_variant" \
-                        --fold-ids "[1,5]" \
+                        --fold-ids "[1,2,3,4,5]" \
                         --lag "$lag" \
                         --override "model_spec.feature_cache=True" \
                         "${sig10_overrides[@]+"${sig10_overrides[@]}"}" \
@@ -220,7 +216,7 @@ for task in "${tasks[@]}"; do
     done
 done
 
-# Wait for remaining jobs
+# Wait until every background job has finished (reap updates pids)
 while (( ${#pids[@]} > 0 )); do
     reap_finished
     if (( ${#pids[@]} > 0 )); then

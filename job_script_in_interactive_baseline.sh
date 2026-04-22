@@ -52,11 +52,11 @@ baseline_configs=(
     "configs/baselines/neural_conv_decoder/pos.yml"
     "configs/baselines/neural_conv_decoder/glove.yml"
     "configs/baselines/neural_conv_decoder/whisper_embedding.yml"
-    # "configs/baselines/neural_conv_decoder/llm.yml"
+    "configs/baselines/neural_conv_decoder/llm.yml"
 )
 
 lags=(0)
-subjects=(1 2 3 4 5 6 7 8 9)
+subjects=(1 3 4 5 6 7 8 9) #* left out sub2 since 1) it's noisy and 2) not included in supersubject csv file.
 
 # ---- Logging ----
 LOG_DIR="${PROJECT_ROOT}/logs/interactive_batch_baseline"

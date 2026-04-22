@@ -28,9 +28,9 @@ DRY_RUN=0
 CLI_MODELS=()
 
 # cd /pscratch/sd/a/ahhyun/EcoGFound/PODCAST/podcast-benchmark/commands
-# CUDA_VISIBLE_DEVICES=0 bash job_script_in_interactive.sh --models diver
-# CUDA_VISIBLE_DEVICES=2 bash job_script_in_interactive.sh --models popt
-# CUDA_VISIBLE_DEVICES=2 bash job_script_in_interactive.sh --models brainbert
+# CUDA_VISIBLE_DEVICES=0 bash job_script_in_interactive_persubject.sh --models diver
+# CUDA_VISIBLE_DEVICES=2 bash job_script_in_interactive_persubject.sh --models popt
+# CUDA_VISIBLE_DEVICES=2 bash job_script_in_interactive_persubject.sh --models brainbert
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -60,29 +60,23 @@ fi
 
 
 tasks=(
-    # "whisper_embedding"
-    # "gpt_surprise"
-    # "pos"
     "content_noncontent"
-    # "gpt_surprise_multiclass"
-    # "iu_boundary"
-    #"sentence_onset"
-    #"llm_decoding"
-    # "llm_embedding_pretraining"
-    #"word_embedding"
-    #"volume_level"
+    "gpt_surprise_multiclass"
+    "gpt_surprise" 
+    "iu_boundary"
+    "llm_decoding"               
+    "llm_embedding_pretraining"    #!don't exsit for baseline? or is it llm_token_finetune_2025-12-26-12-44-36
+    "pos"
+    "sentence_onset"
+    "whisper_embedding"        
+    "word_embedding"          # bug for DIVER? needs check
+    "volume_level"          
 )
 
-# tasks=(
-# )
 
 
+lags=(0 200) #(-250, 0, 250, 500)
 
-lags=(0) #(-250, 0, 250, 500)
-
-#!removed
-    # "llm_decoding"
-    # "volume_level"
 
 # ---- Per-subject sig10 mode ----
 # Set to non-empty to loop over individual subjects with sig10 electrode files.
@@ -90,7 +84,7 @@ lags=(0) #(-250, 0, 250, 500)
 # Leave empty ("") to use the variant config as-is (e.g. supersubject with all channels).
 USE_SIG10=0 # 0 or 1
 
-subjects=(9)
+subjects=(1 3 4 5 6 7 8 9) #* left out sub2 since 1) it's noisy and 2) not included in supersubject csv file.
 
 
 variants=(
@@ -210,7 +204,6 @@ for lag in "${lags[@]}"; do
                         --config "$config" \
                         --variant "$group_variant" \
                         --output-suffix "$output_suffix" \
-                        --fold-ids "[1,5]" \
                         --lag "$lag" \
                         --override "model_spec.feature_cache=True" \
                         "${sig10_overrides[@]+"${sig10_overrides[@]}"}" \
