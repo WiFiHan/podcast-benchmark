@@ -39,7 +39,7 @@ training_params:
   - f1
   - acc
   min_lag: -1000
-  n_folds: 10
+  n_folds: 5
   smaller_is_better: false
   weight_decay: 1.0e-05
   fold_ids:

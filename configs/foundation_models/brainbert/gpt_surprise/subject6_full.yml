@@ -39,7 +39,7 @@ training_params:
   - corr
   - r2
   min_lag: -1000
-  n_folds: 10
+  n_folds: 5
   smaller_is_better: true
   weight_decay: 1.0e-05
   fold_ids:
