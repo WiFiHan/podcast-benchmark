@@ -70,7 +70,7 @@ tasks=(
     "volume_level"          
 )
 
-lags=(200)
+lags=(0 250)
 
 variants=(
     #"supersubject"

@@ -47,6 +47,8 @@ done
 
 # ---- Job matrix ----
 models=(
+    "brainbert"
+    "popt"
     "diver"
 )
 # Override models from CLI if --models was given
@@ -75,7 +77,7 @@ tasks=(
 
 
 
-lags=(0 200) #(-250, 0, 250, 500)
+lags=(0 250) #(-250, 0, 250, 500)
 
 
 # ---- Per-subject sig10 mode ----
@@ -203,6 +205,7 @@ for lag in "${lags[@]}"; do
                         --task "$task" \
                         --config "$config" \
                         --variant "$group_variant" \
+                        --fold-ids "[1,2,3,4,5]" \
                         --output-suffix "$output_suffix" \
                         --lag "$lag" \
                         --override "model_spec.feature_cache=True" \
