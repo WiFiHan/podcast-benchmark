@@ -12,19 +12,25 @@ set -euo pipefail
 # python processes sharing the same GPU(s).
 #
 # Usage:
-#   ./commands/job_script_in_interactive_supersubject.sh [--max-parallel N] [--dry-run]
+#   cd /pscratch/sd/a/ahhyun/EcoGFound/PODCAST/podcast-benchmark/
+#   ./job_script_in_interactive_supersubject.sh [--max-parallel N] [--dry-run] [--models a,b] [--tasks a,b] [--lags x,y]
 #
 # Options:
 #   --max-parallel N   Max concurrent jobs (default: 1)
 #   --dry-run          Print jobs without running
+#   --models a,b       Override model list (comma-separated)
+#   --tasks a,b        Override task list directly (comma-separated)
+#   --lags x,y         Override lag list (comma-separated, e.g. 0 or -250,0,250)
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${SCRIPT_DIR}"
 
-MAX_PARALLEL=3
+MAX_PARALLEL=2
 DRY_RUN=0
 CLI_MODELS=()
+CLI_TASKS=()
+CLI_LAGS=()
 
 # cd /pscratch/sd/a/ahhyun/EcoGFound/PODCAST/podcast-benchmark/
 # CUDA_VISIBLE_DEVICES=0 bash job_script_in_interactive_supersubject.sh --models diver
@@ -36,6 +42,8 @@ while [[ $# -gt 0 ]]; do
         --max-parallel) MAX_PARALLEL="${2:?missing value}"; shift 2 ;;
         --dry-run)      DRY_RUN=1; shift ;;
         --models)       IFS=',' read -ra CLI_MODELS <<< "${2:?missing value}"; shift 2 ;;
+        --tasks)        IFS=',' read -ra CLI_TASKS <<< "${2:?missing value}"; shift 2 ;;
+        --lags)         IFS=',' read -ra CLI_LAGS <<< "${2:?missing value}"; shift 2 ;;
         --help|-h)
             sed -n '/^# =====/,/^# =====/p' "$0" | grep '^#' | sed 's/^# //'
             exit 0
@@ -60,17 +68,27 @@ tasks=(
     "content_noncontent"
     "gpt_surprise_multiclass"
     "gpt_surprise" 
-    "iu_boundary"
-    "llm_decoding"               
-    "llm_embedding_pretraining"    #!don't exsit for baseline? or is it llm_token_finetune_2025-12-26-12-44-36
-    "pos"
-    "sentence_onset"
-    "whisper_embedding"        
-    "word_embedding"          # bug for DIVER? needs check
-    "volume_level"          
+    # "iu_boundary"
+          
+    # "llm_embedding_pretraining"    #!don't exsit for baseline? or is it llm_token_finetune_2025-12-26-12-44-36
+    # "pos"
+    # "sentence_onset"
+    # "whisper_embedding"        
 )
-
+#* Danny will run
+    #"llm_decoding"     
+    #"volume_level"  
+    # "word_embedding"          # bug for DIVER? needs check     
+    
 lags=(0 250)
+
+if (( ${#CLI_TASKS[@]} > 0 )); then
+    tasks=("${CLI_TASKS[@]}")
+fi
+
+if (( ${#CLI_LAGS[@]} > 0 )); then
+    lags=("${CLI_LAGS[@]}")
+fi
 
 variants=(
     #"supersubject"

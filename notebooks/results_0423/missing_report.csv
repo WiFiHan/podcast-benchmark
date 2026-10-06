@@ -1,0 +1,2 @@
+condition,model,task,subject,lag,available_folds,missing_folds,reason
+subject_full,brainbert,word_embedding_decoding_task,7,250,,"1,2,3,4,5",missing lag rows

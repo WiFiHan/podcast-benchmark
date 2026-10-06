@@ -1,0 +1,4 @@
+,content_noncontent_task,gpt_surprise_multiclass_task,gpt_surprise_task,iu_boundary_task,llm_decoding_task,llm_embedding_pretraining_task,pos_task,sentence_onset_task,volume_level_decoding_task,whisper_embedding_decoding_task,word_embedding_decoding_task
+brainbert,8,8,8,8,0,8,8,8,0,8,8
+diver,8,8,8,8,0,8,8,8,0,8,8
+popt,8,8,8,8,0,8,8,8,0,8,8

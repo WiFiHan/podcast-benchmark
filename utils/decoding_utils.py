@@ -821,7 +821,10 @@ def train_decoding_model(
             #redefining model
             model_name = str(model.__class__.__name__)
             if model_name == "ReferenceBrainBERTDecoder":  #*brainbert
-                model = SqueezeWrapper(feature_head = model.projector, output_dim=model.output_dim).to(device)
+                model = SqueezeWrapper(
+                    feature_head=MakeIgnoreKwargsDuringForward(model.projector),
+                    output_dim=model.output_dim,
+                ).to(device)
             elif model_name == "ReferencePOPTDecoder" : #*popt
                 model = MakeIgnoreKwargsDuringForward(model.head).to(device) 
             elif model_name == "DIVERDecoder" : #*DIVFER
